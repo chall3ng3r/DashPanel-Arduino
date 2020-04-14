@@ -1,16 +1,13 @@
 #include <Arduino.h>
 #include <SoftwareSerial.h>
+#include <Wire.h>
+#include <OneWire.h>
 #include <TinyGPS++.h>
 #include <TimeLib.h>
 #include <AsyncDelay.h>
-#include <user_interface.h>
-
-// Include the correct display library
-// For a connection via I2C using Wire include
-#include <Wire.h>
-#include <OneWire.h>
-#include "SSD1306Wire.h"
 #include <DallasTemperature.h>
+#include <user_interface.h>
+#include "SSD1306Wire.h"
 //
 #include "font-roboto-10.h"
 #include "font-dialog-11.h"
@@ -35,6 +32,7 @@ SSD1306Wire display2(0x3d, 4, 5);
 
 AsyncDelay delayGPS;
 AsyncDelay delaySensors;
+AsyncDelay delayTime;
 
 int gpsAltitude = 0;
 double gpsCompass = 0;
@@ -211,6 +209,22 @@ void renderDisplay2()
   display2.display();
 }
 
+void updateTemperature()
+{
+    tempSensors.requestTemperatures();
+    tOutside = tempSensors.getTempCByIndex(0);
+    tInside = tempSensors.getTempCByIndex(1);
+}
+
+void updateTime()
+{
+  if (gps.time.isValid() && gps.time.age() < 500)
+  {
+    setTime(gps.time.hour(), gps.time.minute(), gps.time.second(), gps.date.day(), gps.date.month(), gps.date.year());
+    adjustTime(TIME_OFFSET * SECS_PER_HOUR);
+  }
+}
+
 // arduino fx
 void setup()
 {
@@ -227,31 +241,18 @@ void setup()
   display1.flipScreenVertically();
   display2.flipScreenVertically();
 
-  // display1.setFont(ArialMT_Plain_16);
-  // display1.setTextAlignment(TEXT_ALIGN_LEFT);
-  // display2.setFont(ArialMT_Plain_16);
-  // display2.setTextAlignment(TEXT_ALIGN_LEFT);
-
-  delayGPS.start(2000, AsyncDelay::MILLIS);
+  delayGPS.start(1000, AsyncDelay::MILLIS);
+  delayTime.start(500, AsyncDelay::MILLIS);
+  //delaySensors.start(100, AsyncDelay::MILLIS);
 }
 
-time_t lastTimeUpdate = -5;
-// time_t lastDataUpdate = -1;
+unsigned long lastDataUpdate = 0;
 void loop()
 {
-  // update time
-  if (gps.time.isValid() && gps.time.age() < 500 && now() - lastTimeUpdate > 5)
+  if(delayGPS.isExpired())
   {
-    setTime(gps.time.hour(), gps.time.minute(), gps.time.second(), gps.date.day(), gps.date.month(), gps.date.year());
-    smartDelay(50);
-    adjustTime(TIME_OFFSET * SECS_PER_HOUR);
-    smartDelay(50);
-    lastTimeUpdate = now() + SECS_PER_MIN;
-  }
-
-  if (delayGPS.isExpired())
-  {
-    unsigned long t = millis();
+    Serial.print("delayGPS.isExpired(): ");
+    Serial.println(millis() - lastDataUpdate);
 
     // get compass data if valid
     gpsSpeed = gps.speed.isValid() ? gps.speed.kmph() : gpsSpeed;
@@ -261,37 +262,25 @@ void loop()
     gpsSat = gps.satellites.isValid() ? gps.satellites.value() : gpsSat;
     gpsAltitude = gps.altitude.isValid() ? gps.altitude.feet() : gpsAltitude;
 
-    // render screens
-    smartDelay(10);
+    updateTemperature();
+
     renderDisplay1();
-    smartDelay(10);
     renderDisplay2();
-    smartDelay(10);
 
-    Serial.print("Time ms: ");
-    Serial.println(millis() - t);
 
-    //delaySensors.start(100, AsyncDelay::MILLIS);
+    lastDataUpdate = millis();
     delayGPS.repeat();
   }
-  // refresh temperature data
-  if (delaySensors.isExpired())
+
+  if(delayTime.isExpired())
   {
-    // Init temperature sensors
-    // OneWire oneWire(2);
-    // DallasTemperature tempSensors(&oneWire);
-    // tempSensors.begin();
-    tempSensors.requestTemperatures();
-    tOutside = tempSensors.getTempCByIndex(0);
-    tInside = tempSensors.getTempCByIndex(1);
-    Serial.println("Read sensors");
+    updateTime();
+    delayTime.start(5000, AsyncDelay::MILLIS);
   }
 
-  //lastDataUpdate = now();
-
   // GPS data process
-  smartDelay(100);
+  smartDelay(2);
 
-  if (millis() > 5000 && gps.charsProcessed() < 10)
-    Serial.println(F("No GPS data received: check wiring"));
+  // if (millis() > 5000 && gps.charsProcessed() < 10)
+  //   Serial.println(F("No GPS data received: check wiring"));
 }
