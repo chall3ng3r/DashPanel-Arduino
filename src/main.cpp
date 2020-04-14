@@ -15,6 +15,7 @@
 #include "font-dseg7.h"
 #include "images.h"
 
+// defines
 #define DEG2RAD 0.0174532925
 #define TIME_OFFSET 5
 
@@ -30,10 +31,11 @@ DallasTemperature tempSensors(&oneWire);
 SSD1306Wire display1(0x3c, 4, 5);
 SSD1306Wire display2(0x3d, 4, 5);
 
+// Init delay timers
 AsyncDelay delayGPS;
-AsyncDelay delaySensors;
 AsyncDelay delayTime;
 
+// internal vars
 int gpsAltitude = 0;
 double gpsCompass = 0;
 double gpsSpeed = 0;
@@ -41,6 +43,8 @@ double gpsLat, gpsLong = 0;
 double gpsSat = 0;
 float tOutside = 0;
 float tInside = 0;
+//
+bool showSeconds = true;
 
 static void smartDelay(unsigned long ms)
 {
@@ -54,10 +58,6 @@ static void smartDelay(unsigned long ms)
 
 void drawRotatedBitmap(SSD1306Wire *display, int16_t x, int16_t y, uint8_t w, uint8_t h, const uint8_t *bitmap, uint16_t angle)
 {
-
-  //uint8_t w = pgm_read_byte(bitmap++);
-  //uint8_t h = pgm_read_byte(bitmap++);
-
   int16_t newx, newy;
   uint8_t data = 0;
 
@@ -83,7 +83,8 @@ void drawRotatedBitmap(SSD1306Wire *display, int16_t x, int16_t y, uint8_t w, ui
         display->setPixel(newx, newy);
         //display.drawPixel(newx, newy, 1);
       }
-      //else            display.drawPixel(newx, newy, 0);
+      //else
+      //  display.drawPixel(newx, newy, 0);
     }
   }
 }
@@ -153,7 +154,6 @@ void renderDisplay1()
   display1.display();
 }
 
-bool secondState = true;
 void renderDisplay2()
 {
   String strTemp = "";
@@ -170,12 +170,12 @@ void renderDisplay2()
   display2.drawString(6 + display2.getStringWidth("00"), 2, strTemp);
 
   // seconds
-  if (secondState)
+  if (showSeconds)
   {
     display2.fillCircle(50, 14, 2);
     display2.fillCircle(50, 26, 2);
   }
-  secondState = !secondState;
+  showSeconds = !showSeconds;
 
   // day and month
   display2.setFont(Dialog_plain_11);
@@ -211,9 +211,9 @@ void renderDisplay2()
 
 void updateTemperature()
 {
-    tempSensors.requestTemperatures();
-    tOutside = tempSensors.getTempCByIndex(0);
-    tInside = tempSensors.getTempCByIndex(1);
+  tempSensors.requestTemperatures();
+  tOutside = tempSensors.getTempCByIndex(0);
+  tInside = tempSensors.getTempCByIndex(1);
 }
 
 void updateTime()
@@ -228,33 +228,33 @@ void updateTime()
 // arduino fx
 void setup()
 {
+  // inits
   Serial.begin(115200);
   serialGPS.begin(9600);
   tempSensors.begin();
-
-  Serial.println();
-  Serial.println("Starting...");
-
   display1.init();
   display2.init();
+
+  Serial.println();
+  Serial.println(">> Starting...");
 
   display1.flipScreenVertically();
   display2.flipScreenVertically();
 
+  // start timers
   delayGPS.start(1000, AsyncDelay::MILLIS);
   delayTime.start(500, AsyncDelay::MILLIS);
-  //delaySensors.start(100, AsyncDelay::MILLIS);
 }
 
 unsigned long lastDataUpdate = 0;
 void loop()
 {
-  if(delayGPS.isExpired())
+  if (delayGPS.isExpired())
   {
     Serial.print("delayGPS.isExpired(): ");
     Serial.println(millis() - lastDataUpdate);
 
-    // get compass data if valid
+    // read compass data
     gpsSpeed = gps.speed.isValid() ? gps.speed.kmph() : gpsSpeed;
     gpsLat = gps.location.isValid() ? gps.location.lat() : gpsLat;
     gpsLong = gps.location.isValid() ? gps.location.lng() : gpsLong;
@@ -264,18 +264,19 @@ void loop()
 
     updateTemperature();
 
+    // update dsiplays
     renderDisplay1();
     renderDisplay2();
-
 
     lastDataUpdate = millis();
     delayGPS.repeat();
   }
 
-  if(delayTime.isExpired())
+  if (delayTime.isExpired())
   {
     updateTime();
-    delayTime.start(5000, AsyncDelay::MILLIS);
+    // sync time with GPS every minute
+    delayTime.start(SECS_PER_MIN, AsyncDelay::MILLIS);
   }
 
   // GPS data process
