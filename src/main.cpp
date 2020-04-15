@@ -209,6 +209,16 @@ void renderDisplay2()
   display2.display();
 }
 
+void updateGpsData()
+{
+  gpsSpeed = gps.speed.isValid() ? gps.speed.kmph() : gpsSpeed;
+  gpsLat = gps.location.isValid() ? gps.location.lat() : gpsLat;
+  gpsLong = gps.location.isValid() ? gps.location.lng() : gpsLong;
+  gpsCompass = gps.course.isValid() ? gps.course.deg() : gpsCompass;
+  gpsSat = gps.satellites.isValid() ? gps.satellites.value() : gpsSat;
+  gpsAltitude = gps.altitude.isValid() ? gps.altitude.feet() : gpsAltitude;
+}
+
 void updateTemperature()
 {
   tempSensors.requestTemperatures();
@@ -254,14 +264,10 @@ void loop()
     Serial.print("delayGPS.isExpired(): ");
     Serial.println(millis() - lastDataUpdate);
 
-    // read compass data
-    gpsSpeed = gps.speed.isValid() ? gps.speed.kmph() : gpsSpeed;
-    gpsLat = gps.location.isValid() ? gps.location.lat() : gpsLat;
-    gpsLong = gps.location.isValid() ? gps.location.lng() : gpsLong;
-    gpsCompass = gps.course.isValid() ? gps.course.deg() : gpsCompass;
-    gpsSat = gps.satellites.isValid() ? gps.satellites.value() : gpsSat;
-    gpsAltitude = gps.altitude.isValid() ? gps.altitude.feet() : gpsAltitude;
+    // read GPS data
+    updateGpsData();
 
+    // update temperature data
     updateTemperature();
 
     // update dsiplays
