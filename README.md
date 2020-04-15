@@ -17,5 +17,11 @@ Arduino libraries used:
 * OLED display by Squix
 * DallasTemperature
 
+GPIO connections:
+
+* Software Serial for GPS module: 13, 15
+* I2C for OLED displays: 4, 5
+* OneWire DS1820 Sensors: 2
+
 Photos of final product will be added later. Currently the project is living on breadboard.
 ![DashPanel on Breadboard](https://github.com/chall3ng3r/DashPanel-Arduino/blob/master/resources/doc-images/DashPanel-Photo-2.jpg)
